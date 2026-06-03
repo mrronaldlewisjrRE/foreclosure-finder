@@ -1,0 +1,14 @@
+{
+  "name": "scrapers",
+  "version": "1.0.0",
+  "description": "ForeclosureFinder AI Ingest & Scraping Workers",
+  "main": "worker.js",
+  "scripts": {
+    "start": "node worker.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.44.1",
+    "uuid": "^9.0.1"
+  }
+}

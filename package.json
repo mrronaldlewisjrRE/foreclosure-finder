@@ -1,0 +1,11 @@
+{
+  "name": "foreclosure-finder-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ForeclosureFinder AI Platform Monorepo",
+  "workspaces": [
+    "services/api-gateway",
+    "services/scrapers",
+    "services/frontend"
+  ]
+}
