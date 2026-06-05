@@ -10,5 +10,11 @@ export async function fetchWithAuth(url, options = {}) {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  return fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    localStorage.removeItem('ff_auth_token');
+    localStorage.removeItem('ff_auth_user');
+    window.location.reload();
+  }
+  return res;
 }

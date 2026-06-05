@@ -14,12 +14,20 @@ const { detectAndLogCashBuyer, seedMockCashBuyers } = require('./cash-buyer-engi
 // DATABASE CONFIGURATION
 // ═══════════════════════════════════════════════════════════
 const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:54322/postgres';
+
+// Auto-enable SSL for cloud-hosted databases (Supabase, Neon, Railway, etc.)
+const isCloudDb = databaseUrl.includes('supabase') || databaseUrl.includes('neon') ||
+                  databaseUrl.includes('railway') || databaseUrl.includes('render') ||
+                  databaseUrl.includes('amazonaws') || databaseUrl.includes('pooler');
+
 const pool = new Pool({
   connectionString: databaseUrl,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 5000,
+  ...(isCloudDb ? { ssl: { rejectUnauthorized: false } } : {}),
 });
+
 
 // Register CORS
 fastify.register(require('@fastify/cors'), {
@@ -102,7 +110,7 @@ const PLAN_LIMITS = {
 // Resolve effective subscription plan for a user row
 function resolveSubscriptionPlan(user) {
   // Super admin always gets PROFESSIONAL
-  if (user.email && user.email.toLowerCase() === 'mrronaldlewisjr@gmail.com') return 'PROFESSIONAL';
+  if (user.email && (user.email.toLowerCase() === 'mrronaldlewisjr@gmail.com' || user.email.toLowerCase() === 'paidpropertiesllc@gmail.com')) return 'PROFESSIONAL';
   if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') return 'PROFESSIONAL';
 
   // Lifetime access always gets PROFESSIONAL
@@ -798,10 +806,11 @@ fastify.get('/api/v1/leads', async (req, reply) => {
     const listRes = await pool.query(mainQuery, [...queryParams, parseInt(limit, 10), offset]);
     const countRes = await pool.query(countQuery, queryParams);
 
-    // Subscription-aware masking: FREE_TRIAL and STARTER always masked, PROFESSIONAL can toggle
+    // Subscription-aware masking: admins NEVER masked, FREE_TRIAL and STARTER always masked, PROFESSIONAL can toggle
     const effectiveUserPlan = req.user ? resolveSubscriptionPlan(req.user) : 'FREE_TRIAL';
+    const isAdminUser = req.user && (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN');
     const planMasked = PLAN_LIMITS[effectiveUserPlan] ? PLAN_LIMITS[effectiveUserPlan].masked : true;
-    const isMasked = planMasked || (req.query.masked === 'true');
+    const isMasked = isAdminUser ? false : (planMasked || (req.query.masked === 'true'));
 
     const formattedLeads = listRes.rows.map(row => ({
       id: row.id,
@@ -883,7 +892,10 @@ fastify.get('/api/v1/leads/:id', async (req, reply) => {
       [id]
     );
 
-    const isMasked = (userRole === 'USER') || (req.query.masked === 'true');
+    const effectiveUserPlan = req.user ? resolveSubscriptionPlan(req.user) : 'FREE_TRIAL';
+    const isAdminDetail = req.user && (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN');
+    const planMasked = PLAN_LIMITS[effectiveUserPlan] ? PLAN_LIMITS[effectiveUserPlan].masked : true;
+    const isMasked = isAdminDetail ? false : (planMasked || (req.query.masked === 'true'));
 
     return {
       id: row.id,
@@ -1476,8 +1488,8 @@ fastify.post('/api/v1/auth/login', async (req, reply) => {
       return reply.status(401).send({ error: 'Invalid email or password.' });
     }
 
-    // Double check SUPER_ADMIN role for mrronaldlewisjr@gmail.com
-    if (email.toLowerCase() === 'mrronaldlewisjr@gmail.com' && user.role !== 'SUPER_ADMIN') {
+    // Double check SUPER_ADMIN role for mrronaldlewisjr@gmail.com & paidpropertiesllc@gmail.com
+    if ((email.toLowerCase() === 'mrronaldlewisjr@gmail.com' || email.toLowerCase() === 'paidpropertiesllc@gmail.com') && user.role !== 'SUPER_ADMIN') {
       await pool.query("UPDATE users SET role = 'SUPER_ADMIN' WHERE id = $1", [user.id]);
       user.role = 'SUPER_ADMIN';
     }
@@ -1569,7 +1581,7 @@ fastify.post('/api/v1/auth/google', async (req, reply) => {
       // Auto Account Creation
       let role = 'USER';
       let initialPlan = 'FREE_TRIAL';
-      if (email.toLowerCase() === 'mrronaldlewisjr@gmail.com') {
+      if (email.toLowerCase() === 'mrronaldlewisjr@gmail.com' || email.toLowerCase() === 'paidpropertiesllc@gmail.com') {
         role = 'SUPER_ADMIN';
         initialPlan = 'PROFESSIONAL';
       }
@@ -1613,7 +1625,7 @@ fastify.post('/api/v1/auth/google', async (req, reply) => {
         user.password_hash = hashedPassword;
       }
 
-      if (email.toLowerCase() === 'mrronaldlewisjr@gmail.com' && user.role !== 'SUPER_ADMIN') {
+      if ((email.toLowerCase() === 'mrronaldlewisjr@gmail.com' || email.toLowerCase() === 'paidpropertiesllc@gmail.com') && user.role !== 'SUPER_ADMIN') {
         await pool.query("UPDATE users SET role = 'SUPER_ADMIN' WHERE id = $1", [user.id]);
         user.role = 'SUPER_ADMIN';
       }

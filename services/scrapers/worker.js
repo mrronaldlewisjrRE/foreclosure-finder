@@ -23,7 +23,7 @@ function postJSON(urlPath, data) {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(data);
     const options = {
-      hostname: 'localhost',
+      hostname: '127.0.0.1',
       port: process.env.PORT || 4000,
       path: urlPath,
       method: 'POST',
