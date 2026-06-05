@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ShieldCheck, Mail, Calendar, HelpCircle, Sparkles, Award, Target, Maximize2, Minimize2, CheckCircle2, AlertTriangle, Loader2, Share2 } from 'lucide-react';
+import { X, ShieldCheck, Mail, Calendar, HelpCircle, Sparkles, Award, Target, Maximize2, Minimize2, CheckCircle2, AlertTriangle, Loader2, Share2, DollarSign } from 'lucide-react';
 import { API_BASE_URL, fetchWithAuth } from '../config';
 
 export default function LeadDetailsDrawer({ leadId, onClose, onOpenFullPage, currentUser }) {
@@ -309,6 +309,142 @@ export default function LeadDetailsDrawer({ leadId, onClose, onOpenFullPage, cur
               </div>
             </div>
           )}
+
+          {/* ══════ PROMINENT CLAIM ACTION BAR ══════ */}
+          <div style={{
+            margin: '16px 20px 0 20px',
+            padding: '14px 18px',
+            borderRadius: '10px',
+            background: lead.claimStatus === 'Sold' 
+              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))'
+              : lead.claimStatus === 'Claimed'
+                ? (currentUser && lead.claimedByUserId === currentUser.id)
+                  ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(6, 182, 212, 0.02))'
+                  : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.02))'
+                : 'linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(139, 92, 246, 0.04))',
+            border: lead.claimStatus === 'Sold'
+              ? '1px solid rgba(16, 185, 129, 0.3)'
+              : lead.claimStatus === 'Claimed'
+                ? (currentUser && lead.claimedByUserId === currentUser.id)
+                  ? '1px solid rgba(6, 182, 212, 0.3)'
+                  : '1px solid rgba(245, 158, 11, 0.3)'
+                : '1px solid rgba(16, 185, 129, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {lead.claimStatus === 'Sold' ? (
+                <>
+                  <CheckCircle2 size={20} style={{ color: 'var(--emerald)' }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--emerald)' }}>DEAL CLOSED — SOLD</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>This property has been marked as sold on the platform.</div>
+                  </div>
+                </>
+              ) : lead.claimStatus === 'Claimed' ? (
+                currentUser && lead.claimedByUserId === currentUser.id ? (
+                  <>
+                    <CheckCircle2 size={20} style={{ color: 'var(--cyan)' }} />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--cyan)' }}>YOU CLAIMED THIS PROPERTY</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>This lead is in your pipeline. Ready for outreach or disposition.</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={20} style={{ color: 'var(--amber)' }} />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--amber)' }}>CLAIMED BY ANOTHER USER</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Another wholesaler is currently working this property.</div>
+                    </div>
+                  </>
+                )
+              ) : (
+                <>
+                  <Target size={20} style={{ color: 'var(--emerald)' }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--emerald)' }}>AVAILABLE — UNCLAIMED</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Claim this property to add it to your acquisition pipeline.</div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {(lead.claimStatus === 'Available' || lead.claimStatus === 'Released' || lead.claimStatus === 'UNCLAIMED' || !lead.claimStatus) && (
+                <button
+                  onClick={handleClaim}
+                  disabled={claiming}
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    fontWeight: 800,
+                    fontSize: '0.82rem',
+                    cursor: claiming ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                    transition: 'all 0.2s ease',
+                    opacity: claiming ? 0.7 : 1
+                  }}
+                >
+                  <Target size={16} />
+                  {claiming ? 'Claiming...' : '🔒 Claim This Property'}
+                </button>
+              )}
+
+              {lead.claimStatus === 'Claimed' && currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'SUPER_ADMIN' || lead.claimedByUserId === currentUser.id) && (
+                <>
+                  <button
+                    onClick={handleRelease}
+                    disabled={claiming}
+                    style={{
+                      background: 'transparent',
+                      color: 'var(--rose)',
+                      border: '1px solid var(--rose)',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: claiming ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <X size={14} />
+                    Release
+                  </button>
+                  <button
+                    onClick={() => setShowSoldModal(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, var(--emerald), #059669)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      fontWeight: 800,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                    }}
+                  >
+                    💰 Mark Sold
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
 
           {/* Section 1: Ingestion Meta */}
           <div className="drawer-section">

@@ -914,18 +914,32 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
                     No leads found matching current criteria.
                   </td>
                 </tr>
-              ) : (
-                leads.map(lead => (
+                leads.map(lead => {
+                  const isClaimed = lead.claimStatus === 'Claimed';
+                  const isSold = lead.claimStatus === 'Sold';
+                  const isUnavailable = isClaimed || isSold;
+
+                  return (
                   <tr 
                     key={lead.id} 
                     onClick={() => onSelectLead(lead.id)}
                     style={{ 
-                      backgroundColor: selectedLeads.has(lead.id) ? 'rgba(6, 182, 212, 0.04)' : '',
+                      backgroundColor: selectedLeads.has(lead.id) 
+                        ? 'rgba(6, 182, 212, 0.04)' 
+                        : isUnavailable 
+                          ? 'rgba(100, 100, 100, 0.04)' 
+                          : '',
                       cursor: 'pointer',
-                      transition: 'background-color 0.15s ease'
+                      transition: 'background-color 0.15s ease',
+                      opacity: isUnavailable ? 0.55 : 1,
+                      borderLeft: isSold 
+                        ? '3px solid var(--emerald)' 
+                        : isClaimed 
+                          ? '3px solid var(--amber)' 
+                          : '3px solid transparent'
                     }}
-                    onMouseEnter={(e) => { if (!selectedLeads.has(lead.id)) e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.06)'; }}
-                    onMouseLeave={(e) => { if (!selectedLeads.has(lead.id)) e.currentTarget.style.backgroundColor = ''; }}
+                    onMouseEnter={(e) => { if (!selectedLeads.has(lead.id)) e.currentTarget.style.backgroundColor = isUnavailable ? 'rgba(100, 100, 100, 0.08)' : 'rgba(6, 182, 212, 0.06)'; e.currentTarget.style.opacity = isUnavailable ? '0.75' : '1'; }}
+                    onMouseLeave={(e) => { if (!selectedLeads.has(lead.id)) e.currentTarget.style.backgroundColor = isUnavailable ? 'rgba(100, 100, 100, 0.04)' : ''; e.currentTarget.style.opacity = isUnavailable ? '0.55' : '1'; }}
                   >
                     <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                       <input 
@@ -941,6 +955,36 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
                         <div style={{ color: 'var(--cyan)', fontSize: '0.72rem', marginTop: 3 }}>
                           ({lead.distanceMiles} miles from center)
                         </div>
+                      )}
+                      {isClaimed && (
+                        <span style={{
+                          display: 'inline-block',
+                          marginLeft: '8px',
+                          fontSize: '0.58rem',
+                          fontWeight: 800,
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          background: 'var(--amber-glow)',
+                          color: 'var(--amber)',
+                          border: '1px solid var(--amber)',
+                          verticalAlign: 'middle',
+                          letterSpacing: '0.04em'
+                        }}>CLAIMED</span>
+                      )}
+                      {isSold && (
+                        <span style={{
+                          display: 'inline-block',
+                          marginLeft: '8px',
+                          fontSize: '0.58rem',
+                          fontWeight: 800,
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          background: 'var(--emerald-glow)',
+                          color: 'var(--emerald)',
+                          border: '1px solid var(--emerald)',
+                          verticalAlign: 'middle',
+                          letterSpacing: '0.04em'
+                        }}>SOLD</span>
                       )}
                     </td>
                     <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{lead.ownerName || 'N/A'}</td>
@@ -1045,7 +1089,8 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
 
