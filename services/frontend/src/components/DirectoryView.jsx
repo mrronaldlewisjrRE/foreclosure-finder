@@ -1,10 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Search, SlidersHorizontal, Briefcase, Info, Save, Compass, Sparkles, X, Download, Plus } from 'lucide-react';
+import { Search, SlidersHorizontal, Briefcase, Info, Save, Compass, Sparkles, X, Download, Plus, RefreshCw, Share2 } from 'lucide-react';
 import citiesMetadata from '../citiesMetadata';
 import { API_BASE_URL, fetchWithAuth } from '../config';
 
+const STATE_NAMES = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+  KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+  MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri',
+  MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey',
+  NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio',
+  OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming'
+};
+
 export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
+  const [allLeads, setAllLeads] = useState([]);
   const [leads, setLeads] = useState([]);
+  const [filteredLeads, setFilteredLeads] = useState([]);
   const [totalLeads, setTotalLeads] = useState(0);
   const [loading, setLoading] = useState(true);
   
@@ -12,6 +27,7 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
   const [selectedLeads, setSelectedLeads] = useState(new Map());
 
   // Search & Filter state
+  const [stateFilter, setStateFilter] = useState('');
   const [county, setCounty] = useState('');
   const [filingType, setFilingType] = useState('');
   const [tier, setTier] = useState('');
@@ -20,7 +36,6 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const limit = 50;
-
 
   // New column-level filters
   const [minEquityPct, setMinEquityPct] = useState(0);
@@ -53,45 +68,132 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
     a.state.localeCompare(b.state) || a.countyCode.localeCompare(b.countyCode)
   );
 
+  function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 3959; // Radius of the earth in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  // Refetch leads only when maskedToggle changes or on mount
   useEffect(() => {
     fetchLeads();
-  }, [county, filingType, tier, minEquity, vacant, page, enableRadius, centerCityName, radiusVal, minEquityPct, minScore, inCrm, maskedToggle]);
+  }, [maskedToggle]);
+
+  // Handle client-side in-memory search and filtering (index/memory)
+  useEffect(() => {
+    let filtered = [...allLeads];
+
+    // 1. Search Query filter (searches address, case, owner, state name/code, county name/code, filing type)
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      const qCleaned = q.replace(/[^a-z0-9]/g, '');
+      filtered = filtered.filter(lead => {
+        const leadState = lead.countyCode ? lead.countyCode.split('_')[0] : '';
+        const stateName = STATE_NAMES[leadState] || '';
+        
+        const matchesAddress = lead.propertyAddress && lead.propertyAddress.toLowerCase().includes(q);
+        const matchesCase = lead.caseNumber && lead.caseNumber.toLowerCase().includes(q);
+        const matchesOwner = lead.ownerName && lead.ownerName.toLowerCase().includes(q);
+        const matchesState = leadState.toLowerCase() === q || stateName.toLowerCase().includes(q);
+        
+        // Clean up county code search (e.g. TN_DAVIDSON -> davidson, pulaski, etc.)
+        const countyPart = lead.countyCode ? lead.countyCode.split('_')[1] : '';
+        const matchesCounty = countyPart && countyPart.toLowerCase().replace(/[^a-z0-9]/g, '').includes(qCleaned);
+        
+        const matchesFiling = lead.filingType && lead.filingType.toLowerCase().replace(/_/g, ' ').includes(q);
+        
+        return matchesAddress || matchesCase || matchesOwner || matchesState || matchesCounty || matchesFiling;
+      });
+    }
+
+    // 2. State filter
+    if (stateFilter) {
+      filtered = filtered.filter(lead => 
+        lead.countyCode && lead.countyCode.startsWith(`${stateFilter}_`)
+      );
+    }
+
+    // 3. County filter
+    if (county) {
+      filtered = filtered.filter(lead => lead.countyCode === county);
+    }
+
+    // 4. Filing Type filter
+    if (filingType) {
+      filtered = filtered.filter(lead => lead.filingType === filingType);
+    }
+
+    // 5. Opportunity Tier filter
+    if (tier) {
+      filtered = filtered.filter(lead => lead.score?.tier === tier);
+    }
+
+    // 6. Minimum Equity ($) filter
+    if (minEquity > 0) {
+      filtered = filtered.filter(lead => (lead.valuation?.estimatedEquity || 0) >= minEquity);
+    }
+
+    // 7. Minimum Equity % filter
+    if (minEquityPct > 0) {
+      filtered = filtered.filter(lead => (lead.valuation?.equityPercentage || 0) >= minEquityPct);
+    }
+
+    // 8. Minimum Opportunity Score filter
+    if (minScore > 0) {
+      filtered = filtered.filter(lead => (lead.score?.opportunityScore || 0) >= minScore);
+    }
+
+    // 9. USPS Vacant filter
+    if (vacant) {
+      filtered = filtered.filter(lead => lead.isVacant === true);
+    }
+
+    // 10. CRM Status filter
+    if (inCrm === 'true') {
+      filtered = filtered.filter(lead => lead.inCrm === true);
+    } else if (inCrm === 'false') {
+      filtered = filtered.filter(lead => lead.inCrm !== true);
+    }
+
+    // 11. Radius filter (client-side Haversine calculation)
+    if (enableRadius) {
+      const cityMatch = citiesMetadata.find(c => c.city === centerCityName);
+      if (cityMatch) {
+        filtered = filtered.filter(lead => {
+          if (!lead.coordinates?.lat || !lead.coordinates?.lng) return false;
+          const dist = getDistance(cityMatch.lat, cityMatch.lng, lead.coordinates.lat, lead.coordinates.lng);
+          lead.distanceMiles = parseFloat(dist.toFixed(2));
+          return dist <= radiusVal;
+        });
+      }
+    } else {
+      filtered.forEach(lead => lead.distanceMiles = null);
+    }
+
+    setFilteredLeads(filtered);
+    setTotalLeads(filtered.length);
+
+    // Apply pagination client-side
+    const startIndex = (page - 1) * limit;
+    const paginated = filtered.slice(startIndex, startIndex + limit);
+    setLeads(paginated);
+
+  }, [allLeads, searchQuery, stateFilter, county, filingType, tier, minEquity, vacant, page, enableRadius, centerCityName, radiusVal, minEquityPct, minScore, inCrm]);
 
   async function fetchLeads() {
     setLoading(true);
     try {
-      let queryStr = `limit=${limit}&page=${page}&masked=${maskedToggle}`;
-      if (county) queryStr += `&county=${county}`;
-      if (filingType) queryStr += `&filingType=${filingType}`;
-      if (tier) queryStr += `&tier=${tier}`;
-      if (minEquity > 0) queryStr += `&minEquity=${minEquity}`;
-      if (vacant) queryStr += `&vacant=true`;
-      if (minEquityPct > 0) queryStr += `&minEquityPct=${minEquityPct}`;
-      if (minScore > 0) queryStr += `&minScore=${minScore}`;
-      if (inCrm) queryStr += `&inCrm=${inCrm}`;
-
-      // Inject Haversine radius parameters if active
-      if (enableRadius) {
-        const cityMatch = citiesMetadata.find(c => c.city === centerCityName);
-        if (cityMatch) {
-          queryStr += `&originLat=${cityMatch.lat}&originLng=${cityMatch.lng}&radius=${radiusVal}`;
-        }
-      }
-
-      const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/leads?${queryStr}`);
+      // Fetch up to 1000 leads to load everything into client memory (index/memory)
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/leads?limit=1000&masked=${maskedToggle}`);
       const data = await res.json();
-      
-      let list = data.leads || [];
-      if (searchQuery) {
-        list = list.filter(lead => 
-          lead.propertyAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          lead.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          lead.ownerName.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
-
-      setLeads(list);
-      setTotalLeads(data.total || list.length);
+      setAllLeads(data.leads || []);
+      setPage(1);
     } catch (err) {
       console.error('Error fetching leads:', err);
     } finally {
@@ -333,52 +435,14 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
     downloadCSV(csvContent, `leads_selected_export_${new Date().toISOString().split('T')[0]}.csv`);
   }
 
-  // Fetch and export all leads matching the active filters
-  async function handleExportAllFiltered() {
-    try {
-      setLoading(true);
-      let queryStr = `limit=${totalLeads}&page=1&masked=${maskedToggle}`;
-      if (county) queryStr += `&county=${county}`;
-      if (filingType) queryStr += `&filingType=${filingType}`;
-      if (tier) queryStr += `&tier=${tier}`;
-      if (minEquity > 0) queryStr += `&minEquity=${minEquity}`;
-      if (vacant) queryStr += `&vacant=true`;
-      if (minEquityPct > 0) queryStr += `&minEquityPct=${minEquityPct}`;
-      if (minScore > 0) queryStr += `&minScore=${minScore}`;
-      if (inCrm) queryStr += `&inCrm=${inCrm}`;
-
-      if (enableRadius) {
-        const cityMatch = citiesMetadata.find(c => c.city === centerCityName);
-        if (cityMatch) {
-          queryStr += `&originLat=${cityMatch.lat}&originLng=${cityMatch.lng}&radius=${radiusVal}`;
-        }
-      }
-
-      const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/leads?${queryStr}`);
-      const data = await res.json();
-      let list = data.leads || [];
-
-      if (searchQuery) {
-        list = list.filter(lead => 
-          lead.propertyAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          lead.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          lead.ownerName.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
-
-      if (list.length === 0) {
-        alert('No leads found matching current filters to export.');
-        return;
-      }
-
-      const csvContent = convertToCSV(list);
-      downloadCSV(csvContent, `leads_filtered_export_${new Date().toISOString().split('T')[0]}.csv`);
-    } catch (err) {
-      console.error('Error exporting filtered leads:', err);
-      alert('Failed to export leads.');
-    } finally {
-      setLoading(false);
+  // Export all leads matching the active filters from memory
+  function handleExportAllFiltered() {
+    if (filteredLeads.length === 0) {
+      alert('No leads found matching current filters to export.');
+      return;
     }
+    const csvContent = convertToCSV(filteredLeads);
+    downloadCSV(csvContent, `leads_filtered_export_${new Date().toISOString().split('T')[0]}.csv`);
   }
 
 
@@ -419,32 +483,56 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
         </div>
 
         <div className="filter-group">
+          <label className="filter-label">State Jurisdiction</label>
+          <select 
+            className="form-select" 
+            value={stateFilter} 
+            onChange={(e) => { 
+              const selectedState = e.target.value;
+              setStateFilter(selectedState); 
+              // Clear county filter if the county doesn't belong to the selected state
+              if (selectedState && county && !county.startsWith(`${selectedState}_`)) {
+                setCounty('');
+              }
+              setPage(1); 
+            }}
+          >
+            <option value="">All States</option>
+            {Array.from(new Set(citiesMetadata.map(c => c.state))).sort().map(st => (
+              <option key={st} value={st}>{st} - {STATE_NAMES[st] || st}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
           <label className="filter-label">County Jurisdiction</label>
           <select className="form-select" value={county} onChange={(e) => { setCounty(e.target.value); setPage(1); }}>
             <option value="">All Counties</option>
-            {sortedCounties.map(c => {
-              const countyPart = c.countyCode.split('_')[1];
-              let displayName = countyPart.charAt(0) + countyPart.slice(1).toLowerCase();
-              
-              if (countyPart === 'MIAMIDADE') displayName = 'Miami-Dade';
-              else if (countyPart === 'LOSANGELES') displayName = 'Los Angeles';
-              else if (countyPart === 'NEWYORK') displayName = 'New York';
-              else if (countyPart === 'NEWCASTLE') displayName = 'New Castle';
-              else if (countyPart === 'YELLOWSTONE') displayName = 'Yellowstone';
-              else if (countyPart === 'HILLSBOROUGH') displayName = 'Hillsborough';
-              else if (countyPart === 'MECKLENBURG') displayName = 'Mecklenburg';
-              else if (countyPart === 'PHILADELPHIA') displayName = 'Philadelphia';
-              else if (countyPart === 'CHITTENDEN') displayName = 'Chittenden';
-              else if (countyPart === 'MINNEHAHA') displayName = 'Minnehaha';
-              else if (countyPart === 'SALTLAKE') displayName = 'Salt Lake';
-              
-              const suffix = (c.countyCode.includes('ANCHORAGE') || c.countyCode.includes('ORLEANS')) ? ' Borough/Parish' : ' County';
-              return (
-                <option key={c.countyCode} value={c.countyCode}>
-                  {displayName}{suffix}, {c.state}
-                </option>
-              );
-            })}
+            {sortedCounties
+              .filter(c => !stateFilter || c.state === stateFilter)
+              .map(c => {
+                const countyPart = c.countyCode.split('_')[1];
+                let displayName = countyPart.charAt(0) + countyPart.slice(1).toLowerCase();
+                
+                if (countyPart === 'MIAMIDADE') displayName = 'Miami-Dade';
+                else if (countyPart === 'LOSANGELES') displayName = 'Los Angeles';
+                else if (countyPart === 'NEWYORK') displayName = 'New York';
+                else if (countyPart === 'NEWCASTLE') displayName = 'New Castle';
+                else if (countyPart === 'YELLOWSTONE') displayName = 'Yellowstone';
+                else if (countyPart === 'HILLSBOROUGH') displayName = 'Hillsborough';
+                else if (countyPart === 'MECKLENBURG') displayName = 'Mecklenburg';
+                else if (countyPart === 'PHILADELPHIA') displayName = 'Philadelphia';
+                else if (countyPart === 'CHITTENDEN') displayName = 'Chittenden';
+                else if (countyPart === 'MINNEHAHA') displayName = 'Minnehaha';
+                else if (countyPart === 'SALTLAKE') displayName = 'Salt Lake';
+                
+                const suffix = (c.countyCode.includes('ANCHORAGE') || c.countyCode.includes('ORLEANS')) ? ' Borough/Parish' : ' County';
+                return (
+                  <option key={c.countyCode} value={c.countyCode}>
+                    {displayName}{suffix}, {c.state}
+                  </option>
+                );
+              })}
           </select>
         </div>
 
@@ -609,15 +697,18 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
             <Search size={16} style={{ position: 'absolute', left: 14, top: 12, color: 'var(--text-muted)' }} />
             <input 
               type="text" 
-              placeholder="Search by street address, case number, or owner name..." 
+              placeholder="Search by street address, case, owner, state, county, or filing type..." 
               className="form-input" 
               style={{ paddingLeft: 40 }}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              onKeyDown={(e) => e.key === 'Enter' && setPage(1)}
             />
           </div>
-          <button className="btn" onClick={fetchLeads}>Search</button>
+          <button className="btn btn-secondary" onClick={fetchLeads} title="Refresh Data From Server" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <RefreshCw size={13} className={loading ? "spin" : ""} />
+            Refresh
+          </button>
         </div>
 
         {/* Selection & Export Action Toolbar */}
@@ -816,8 +907,18 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
                 </tr>
               ) : (
                 leads.map(lead => (
-                  <tr key={lead.id} style={{ backgroundColor: selectedLeads.has(lead.id) ? 'rgba(6, 182, 212, 0.04)' : '' }}>
-                    <td style={{ textAlign: 'center' }}>
+                  <tr 
+                    key={lead.id} 
+                    onClick={() => onSelectLead(lead.id)}
+                    style={{ 
+                      backgroundColor: selectedLeads.has(lead.id) ? 'rgba(6, 182, 212, 0.04)' : '',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => { if (!selectedLeads.has(lead.id)) e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.06)'; }}
+                    onMouseLeave={(e) => { if (!selectedLeads.has(lead.id)) e.currentTarget.style.backgroundColor = ''; }}
+                  >
+                    <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                       <input 
                         type="checkbox" 
                         checked={selectedLeads.has(lead.id)} 
@@ -901,10 +1002,24 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
                         );
                       })()}
                     </td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <div className="table-actions">
                         <button className="btn btn-secondary btn-sm" onClick={() => onSelectLead(lead.id)} title="View Details">
                           <Info size={13} />
+                        </button>
+                        <button 
+                          className="btn btn-secondary btn-sm" 
+                          onClick={() => {
+                            const shareUrl = `${window.location.origin}${window.location.pathname}?lead=${lead.id}`;
+                            navigator.clipboard.writeText(shareUrl).then(() => {
+                              alert('Property link copied to clipboard!');
+                            }).catch(() => {
+                              alert('Failed to copy link.');
+                            });
+                          }}
+                          title="Copy Share Link"
+                        >
+                          <Share2 size={13} />
                         </button>
                         <button
                           className="btn btn-sm"

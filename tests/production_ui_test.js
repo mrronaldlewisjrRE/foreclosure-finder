@@ -33,7 +33,7 @@ async function testFrontend(url, namePrefix) {
     console.log(`Navigating to ${url}...`);
     await page.goto(url, { waitUntil: 'networkidle' });
 
-    const artifactDir = 'C:/Users/Ronald Lewis Jr/.gemini/antigravity-ide/brain/6a48398b-ca4a-417e-9eb6-1ab75a2fadeb';
+    const artifactDir = 'C:/Users/Ronald Lewis Jr/.gemini/antigravity-ide/brain/b35d93a9-0913-4ad4-88cd-e394a47cab12';
     
     // Screenshot 1: Login Page
     console.log('Capturing login screen...');
@@ -49,8 +49,8 @@ async function testFrontend(url, namePrefix) {
     await page.screenshot({ path: path.join(artifactDir, `${namePrefix}_google_chooser.png`) });
 
     // Enter email address and credentials
-    console.log('Entering Google email address (mrronaldlewisjr@gmail.com)...');
-    await page.fill('input[placeholder="name@gmail.com"]', 'mrronaldlewisjr@gmail.com');
+    console.log('Entering Google email address (paidpropertiesllc@gmail.com)...');
+    await page.fill('input[placeholder="name@gmail.com"]', 'paidpropertiesllc@gmail.com');
     console.log('Entering Google password...');
     await page.fill('input[placeholder="••••••••"]', 'securepassword123');
     console.log('Entering 2FA verification code...');
@@ -68,7 +68,7 @@ async function testFrontend(url, namePrefix) {
     console.log(`Role badge found: "${roleBadge}"`);
 
     // Verify navigation item displays and click them
-    const navs = ['User Management', 'Sales Tracking', 'Security Dashboard'];
+    const navs = ['Team Workspace', 'Revenue Center', 'Security'];
     for (const nav of navs) {
       console.log(`Clicking on sidebar item: "${nav}"...`);
       const navButton = page.locator(`button:has-text("${nav}")`);

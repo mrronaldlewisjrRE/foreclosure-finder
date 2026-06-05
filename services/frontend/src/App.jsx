@@ -27,6 +27,12 @@ const PLAN_FEATURES = {
   NONE: [],
 };
 
+// Domain-based branding — ForeclosureFinder on frontend-one-roan, MyWholesaleOS on mywholesaleos.com
+const isForeclosureFinder = !window.location.hostname.includes('mywholesaleos');
+const BRAND_NAME = isForeclosureFinder ? 'ForeclosureFinder AI' : 'MyWholesaleOS';
+const BRAND_ICON = isForeclosureFinder ? '🏠' : 'OS';
+const BRAND_ICON_BG = isForeclosureFinder ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'var(--accent)';
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('ff_auth_token') || null);
   const [user, setUser] = useState(() => {
@@ -40,10 +46,28 @@ export default function App() {
 
   const [activeView, setActiveView] = useState('dashboard');
   const [selectedLeadId, setSelectedLeadId] = useState(null);
-  const [maskedToggle, setMaskedToggle] = useState(true);
+  const [maskedToggle, setMaskedToggle] = useState(() => {
+    try {
+      const stored = localStorage.getItem('ff_auth_user');
+      const u = stored ? JSON.parse(stored) : null;
+      // Admins always start unmasked
+      if (u?.role === 'ADMIN' || u?.role === 'SUPER_ADMIN') return false;
+    } catch {}
+    return true;
+  });
   const [showPricing, setShowPricing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dealRadarExpanded, setDealRadarExpanded] = useState(false);
+
+  // Check URL query parameters for deep-linked property share links
+  useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const leadIdParam = params.get('lead') || params.get('property');
+    if (leadIdParam) {
+      setSelectedLeadId(leadIdParam);
+      setActiveView('property_file');
+    }
+  });
 
   function handleLoginSuccess(loggedInUser, userToken) {
     setUser(loggedInUser);
@@ -59,6 +83,11 @@ export default function App() {
 
   function handleSelectLead(leadId) {
     setSelectedLeadId(leadId);
+    // Admins go straight to full property file detail view
+    const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+    if (isAdmin) {
+      setActiveView('property_file');
+    }
   }
 
   function handleViewChange(viewName) {
@@ -139,10 +168,10 @@ export default function App() {
       {/* Sidebar Nav */}
       <aside className={`sidebar ${mobileMenuOpen ? 'sidebar-open' : ''}`}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          {/* MyWholesaleOS Logo */}
+          {/* Brand Logo */}
           <div className="logo-container">
-            <div className="logo-icon" style={{ background: 'var(--accent)', fontSize: '0.7rem', fontWeight: 800 }}>OS</div>
-            <div className="logo-text">MyWholesaleOS</div>
+            <div className="logo-icon" style={{ background: BRAND_ICON_BG, fontSize: isForeclosureFinder ? '0.85rem' : '0.7rem', fontWeight: 800 }}>{BRAND_ICON}</div>
+            <div className="logo-text">{BRAND_NAME}</div>
           </div>
 
           <nav className="menu-list">
@@ -362,7 +391,7 @@ export default function App() {
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
             <h2 className="navbar-title">
-              {NAVBAR_TITLES[activeView] || 'MyWholesaleOS'}
+              {NAVBAR_TITLES[activeView] || BRAND_NAME}
             </h2>
           </div>
           

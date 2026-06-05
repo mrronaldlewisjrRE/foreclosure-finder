@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ShieldCheck, Calendar, Award, Target, FileText } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Calendar, Award, Target, FileText, Share2 } from 'lucide-react';
 import { API_BASE_URL, fetchWithAuth } from '../config';
 
 export default function PropertyFileView({ leadId, onClose, maskedToggle = true }) {
@@ -84,8 +84,8 @@ export default function PropertyFileView({ leadId, onClose, maskedToggle = true 
   return (
     <div style={{ padding: '0 0 40px 0', color: 'var(--text-primary)', maxWidth: '1200px', margin: '0 auto' }}>
       
-      {/* Back Button */}
-      <div style={{ marginBottom: '24px' }}>
+      {/* Back & Share Buttons */}
+      <div style={{ marginBottom: '24px', display: 'flex', gap: '12px' }}>
         <button 
           className="btn btn-secondary btn-sm" 
           onClick={onClose}
@@ -93,6 +93,21 @@ export default function PropertyFileView({ leadId, onClose, maskedToggle = true 
         >
           <ArrowLeft size={16} />
           Back to Directory
+        </button>
+        <button 
+          className="btn btn-secondary btn-sm" 
+          onClick={() => {
+            const shareUrl = `${window.location.origin}${window.location.pathname}?lead=${lead.id}`;
+            navigator.clipboard.writeText(shareUrl).then(() => {
+              alert('Property link copied to clipboard!');
+            }).catch(() => {
+              alert('Failed to copy link.');
+            });
+          }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+        >
+          <Share2 size={16} />
+          Share Link
         </button>
       </div>
 

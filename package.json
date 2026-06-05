@@ -3,9 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "description": "ForeclosureFinder AI Platform Monorepo",
-  "workspaces": [
-    "services/api-gateway",
-    "services/scrapers",
-    "services/frontend"
-  ]
+  "scripts": {
+    "start": "node services/api-gateway/server.js",
+    "dev": "node services/api-gateway/server.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "node-cron": "^4.2.1",
+    "pg": "^8.11.5",
+    "playwright": "^1.44.1",
+    "uuid": "^9.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

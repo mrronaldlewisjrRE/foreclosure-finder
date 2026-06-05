@@ -1,0 +1,13 @@
+node_modules/
+.env
+*.log
+frame_*_content*.html
+playwright_direct_raw.html
+find_attom_key.js
+find_api_key.js
+find_api_key_v3.js
+list_all_creds.ps1
+search_logs.js
+find_env_usages.js
+find_trigger_endpoint.js
+scratch/

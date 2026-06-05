@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ShieldCheck, Mail, Calendar, HelpCircle, Sparkles, Award, Target, Maximize2, Minimize2, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, ShieldCheck, Mail, Calendar, HelpCircle, Sparkles, Award, Target, Maximize2, Minimize2, CheckCircle2, AlertTriangle, Loader2, Share2 } from 'lucide-react';
 import { API_BASE_URL, fetchWithAuth } from '../config';
 
 export default function LeadDetailsDrawer({ leadId, onClose, onOpenFullPage, currentUser }) {
@@ -796,6 +796,17 @@ NOTICE IS HEREBY DECLARED that default has occurred under the terms of a certain
             }}>
               <ShieldCheck size={16} />
               Verify Vacancy
+            </button>
+            <button className="btn btn-secondary" style={{ flexGrow: 1 }} onClick={() => {
+              const shareUrl = `${window.location.origin}${window.location.pathname}?lead=${lead.id}`;
+              navigator.clipboard.writeText(shareUrl).then(() => {
+                alert('Property link copied to clipboard!');
+              }).catch(() => {
+                alert('Failed to copy link.');
+              });
+            }}>
+              <Share2 size={16} />
+              Share Link
             </button>
 
             {/* Claim Actions */}
