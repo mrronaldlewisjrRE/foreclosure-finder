@@ -313,9 +313,12 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
   // Dynamic helper calculations for new columns
   function getMotivationScore(filingType, isVacant) {
     let score = 20;
+    if (filingType === 'PRE_FORECLOSURE') score += 35;
     if (filingType === 'NOTICE_OF_DEFAULT' || filingType === 'LIS_PENDENS') score += 30;
     if (filingType === 'TAX_DELINQUENCY') score += 35;
-    if (filingType === 'PROBATE') score += 30;
+    if (filingType === 'TRUSTEE_SALE' || filingType === 'SHERIFF_SALE') score += 40;
+    if (filingType === 'PROBATE' || filingType === 'PROBATE_CASE') score += 30;
+    if (filingType === 'BANK_OWNED') score += 25;
     if (isVacant) score += 25;
     return Math.min(score, 100);
   }
@@ -587,12 +590,15 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
           <label className="filter-label">Filing Category</label>
           <select className="form-select" value={filingType} onChange={(e) => { setFilingType(e.target.value); setPage(1); }}>
             <option value="">All Filings</option>
+            <option value="PRE_FORECLOSURE">Pre-Foreclosure</option>
             <option value="LIS_PENDENS">Lis Pendens</option>
             <option value="NOTICE_OF_DEFAULT">Notice of Default</option>
             <option value="TRUSTEE_SALE">Trustee Sale</option>
             <option value="SHERIFF_SALE">Sheriff Sale</option>
             <option value="TAX_DELINQUENCY">Tax Delinquency</option>
+            <option value="BANK_OWNED">Bank Owned / REO</option>
             <option value="PROBATE">Probate</option>
+            <option value="PROBATE_CASE">Probate Case</option>
             <option value="CODE_VIOLATION">Code Violation</option>
             <option value="PROPERTY_LEAD">Property Lead</option>
             <option value="PROSPECT_PROPERTY">Prospect Property</option>
@@ -800,12 +806,15 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
                       onChange={(e) => { setFilingType(e.target.value); setPage(1); }}
                     >
                       <option value="">All</option>
+                      <option value="PRE_FORECLOSURE">Pre-Foreclosure</option>
                       <option value="LIS_PENDENS">Lis Pendens</option>
                       <option value="NOTICE_OF_DEFAULT">Notice of Default</option>
                       <option value="TRUSTEE_SALE">Trustee Sale</option>
                       <option value="SHERIFF_SALE">Sheriff Sale</option>
                       <option value="TAX_DELINQUENCY">Tax Delinquency</option>
+                      <option value="BANK_OWNED">Bank Owned / REO</option>
                       <option value="PROBATE">Probate</option>
+                      <option value="PROBATE_CASE">Probate Case</option>
                       <option value="CODE_VIOLATION">Code Violation</option>
                       <option value="PROPERTY_LEAD">Property Lead</option>
                       <option value="PROSPECT_PROPERTY">Prospect Property</option>
