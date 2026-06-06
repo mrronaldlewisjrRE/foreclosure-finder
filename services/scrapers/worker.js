@@ -85,6 +85,8 @@ async function runWorker() {
 
     // Resolve the appropriate connector class(es)
     let scrapers = [];
+    let isAttomBased = false;
+
     if (county.startsWith('TN_')) {
       // All Tennessee counties use BCN Universal Connector (real data, no Python)
       scrapers = [new BCNUniversalConnector(county)];
@@ -94,20 +96,30 @@ async function runWorker() {
       }
     } else if (NON_TN_CONNECTORS[county]) {
       // States with dedicated public-data connectors
+      // Note: LA_ORLEANS, LA_JEFFERSON, TX_HARRIS, and TX_FORTBEND are ATTOM-based connectors.
+      const attomBasedCounties = ['LA_ORLEANS', 'LA_JEFFERSON', 'TX_HARRIS', 'TX_FORTBEND'];
+      if (attomBasedCounties.includes(county)) {
+        isAttomBased = true;
+      }
       scrapers = [new NON_TN_CONNECTORS[county]()];
     } else if (isReal) {
-      // Counties with ATTOM API coverage - gated to run only on the 1st of the month
-      const today = new Date();
-      const isFirstOfMonth = today.getDate() === 1;
-      if (isFirstOfMonth) {
-        scrapers = [new AttomConnector(attomApiKey)];
-      } else {
-        console.log(`[Worker] Skipping ATTOM county ${county} - ATTOM is scheduled to run once per month on the 1st.`);
-        continue;
-      }
+      // Counties with ATTOM API coverage fallback
+      isAttomBased = true;
+      scrapers = [new AttomConnector(attomApiKey)];
     } else {
       console.log(`[Worker] Skipping ${county} - no connector available and ATTOM_API_KEY not set.`);
       continue;
+    }
+
+    // Gate ATTOM-based scrapers/connectors to run strictly once per month on the 1st of the month
+    if (isAttomBased) {
+      const today = new Date();
+      const isFirstOfMonth = today.getDate() === 1;
+      const bypassGating = process.env.BYPASS_ATTOM_GATING === 'true';
+      if (!isFirstOfMonth && !bypassGating) {
+        console.log(`[Worker] Skipping ATTOM county ${county} - ATTOM is scheduled to run once per month on the 1st.`);
+        continue;
+      }
     }
 
     for (const scraper of scrapers) {

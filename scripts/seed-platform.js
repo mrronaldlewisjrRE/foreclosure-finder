@@ -147,7 +147,8 @@ async function seedPlatform() {
       path.join(__dirname, 'migration-phase2-evolution.sql'),
       path.join(__dirname, 'migration-phase3-expansion.sql'),
       path.join(__dirname, 'migration-phase3a-validation.sql'),
-      path.join(__dirname, 'migration-phase3b-counties.sql')
+      path.join(__dirname, 'migration-phase3b-counties.sql'),
+      path.join(__dirname, 'migration-phase4-dedup.sql')
     ];
 
     for (const migrationFile of migrations) {
