@@ -3358,20 +3358,15 @@ const start = async () => {
     await fastify.listen({ port, host: '0.0.0.0' });
     console.log(`[API Gateway] Listening on port ${port}`);
 
-    // Dynamic Ingestion Cron: Daily at 1:00 AM if ATTOM is not used (relying on custom scrapers), else Monthly on the 1st at midnight
-    const hasAttomKey = process.env.ATTOM_API_KEY && 
-                        process.env.ATTOM_API_KEY.trim() !== '' && 
-                        process.env.ATTOM_API_KEY !== 'YOUR_ATTOM_DEVELOPER_API_KEY_HERE';
-    const ingestionCronSchedule = hasAttomKey ? '0 0 1 * *' : '0 1 * * *';
-    const scheduleType = hasAttomKey ? 'Monthly (ATTOM active)' : 'Daily (No ATTOM, local scrapers active)';
-
-    cron.schedule(ingestionCronSchedule, () => {
-      console.log(`[API Gateway] ${scheduleType} Ingestion Cron Triggered. Launching worker...`);
+    // Ingestion Cron: Daily at 1:00 AM. 
+    // Custom scrapers run daily, while ATTOM is gated in the worker to run only on the 1st of the month.
+    cron.schedule('0 1 * * *', () => {
+      console.log('[API Gateway] Daily Ingestion Cron Triggered. Launching worker...');
       runWorker().catch(err => {
-        console.error(`[API Gateway] ${scheduleType} Ingestion Worker failed:`, err.message);
+        console.error('[API Gateway] Daily Ingestion Worker failed:', err.message);
       });
     });
-    console.log(`[API Gateway] Ingestion Cron scheduled successfully (${ingestionCronSchedule}) - ${scheduleType}.`);
+    console.log('[API Gateway] Ingestion Cron scheduled successfully (Daily at 1:00 AM).');
 
     // Schedule 1-year data retention archival on the 2nd of each month at 1 AM
     cron.schedule('0 1 2 * *', async () => {

@@ -96,8 +96,15 @@ async function runWorker() {
       // States with dedicated public-data connectors
       scrapers = [new NON_TN_CONNECTORS[county]()];
     } else if (isReal) {
-      // Counties with ATTOM API coverage
-      scrapers = [new AttomConnector(attomApiKey)];
+      // Counties with ATTOM API coverage - gated to run only on the 1st of the month
+      const today = new Date();
+      const isFirstOfMonth = today.getDate() === 1;
+      if (isFirstOfMonth) {
+        scrapers = [new AttomConnector(attomApiKey)];
+      } else {
+        console.log(`[Worker] Skipping ATTOM county ${county} - ATTOM is scheduled to run once per month on the 1st.`);
+        continue;
+      }
     } else {
       console.log(`[Worker] Skipping ${county} - no connector available and ATTOM_API_KEY not set.`);
       continue;
