@@ -15,6 +15,7 @@
     "node-cron": "^4.2.1",
     "pg": "^8.11.5",
     "playwright": "^1.44.1",
+    "puppeteer": "^25.1.0",
     "uuid": "^9.0.1"
   },
   "engines": {

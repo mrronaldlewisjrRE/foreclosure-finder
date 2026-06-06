@@ -174,8 +174,13 @@ function validateCaseSpecifics(record) {
  * Validates a single distress record.
  * Returns { valid: boolean, errors: string[] }
  */
-function validateRecord(record) {
+function validateRecord(record, countyCode) {
   const errors = [];
+
+  const resolvedCounty = countyCode || record.countyCode || record.county_code;
+  if (!resolvedCounty || resolvedCounty.trim() === '') {
+    errors.push('Missing county code registry');
+  }
 
   const sourceCheck = validateSource(record);
   if (!sourceCheck.valid) errors.push(sourceCheck.reason);

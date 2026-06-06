@@ -525,7 +525,7 @@ fastify.post('/api/v1/ingestion/leads', async (req, reply) => {
 
     for (const rec of records) {
       // 1. Run through validation framework
-      const validation = validateRecord(rec);
+      const validation = validateRecord(rec, countyCode);
 
       if (!validation.valid) {
         unverifiedCount++;
@@ -678,8 +678,8 @@ fastify.get('/api/v1/leads', async (req, reply) => {
     }
   }
 
-  // Always exclude archived leads from directory view
-  clauses.push(`l.verification_status != 'ARCHIVED'`);
+  // Only display VERIFIED and PENDING_OWNERSHIP_MATCH leads in production
+  clauses.push(`l.verification_status IN ('VERIFIED', 'PENDING_OWNERSHIP_MATCH')`);
 
   if (county) {
     clauses.push(`l.county_code = $${paramIdx++}`);
@@ -3138,6 +3138,94 @@ fastify.post('/api/v1/acquisition/lead/:crmId/comms', async (req, reply) => {
     return { success: true, communication: res.rows[0] };
   } catch (err) {
     return reply.status(500).send({ error: err.message });
+  }
+});
+
+// Retrieve dynamic coverage health statistics by state
+fastify.get('/api/v1/coverage/stats', async (req, reply) => {
+  if (!req.user) {
+    return reply.status(401).send({ error: 'Authentication required.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const statesList = ['TN', 'GA', 'FL', 'TX', 'AL', 'MS', 'LA', 'AR', 'KY', 'NC', 'SC', 'VA', 'OH', 'IN'];
+    const statsMap = {};
+    statesList.forEach(s => {
+      statsMap[s] = {
+        state: s,
+        countiesDiscovered: 0,
+        countiesActive: 0,
+        countiesScraped: 0,
+        recordsCollected: 0,
+        verifiedRecords: 0,
+        pendingRecords: 0,
+        rejectedRecords: 0,
+        lastScrapeDate: null,
+        lastSuccessfulScrapeDate: null
+      };
+    });
+
+    const [discoveredRes, activeRes, leadsRes, scrapesRes] = await Promise.all([
+      client.query(`SELECT state, COUNT(*) as count FROM county_discovery_registry GROUP BY state`),
+      client.query(`SELECT state, COUNT(*) FILTER (WHERE is_active = TRUE) as active_count FROM counties GROUP BY state`),
+      client.query(`
+        SELECT 
+          COALESCE(property_state, SUBSTRING(county_code FROM 1 FOR 2)) as state, 
+          verification_status, 
+          COUNT(*) as count 
+        FROM foreclosure_leads 
+        GROUP BY state, verification_status
+      `),
+      client.query(`
+        SELECT 
+          c.state, 
+          COUNT(DISTINCT s.county_code) FILTER (WHERE s.status = 'SUCCESS') as scraped_count,
+          MAX(s.start_time) as last_scrape,
+          MAX(s.start_time) FILTER (WHERE s.status = 'SUCCESS') as last_success
+        FROM scrapers_log s 
+        JOIN counties c ON s.county_code = c.county_code 
+        GROUP BY c.state
+      `)
+    ]);
+
+    discoveredRes.rows.forEach(r => {
+      if (statsMap[r.state]) statsMap[r.state].countiesDiscovered = parseInt(r.count, 10);
+    });
+
+    activeRes.rows.forEach(r => {
+      if (statsMap[r.state]) statsMap[r.state].countiesActive = parseInt(r.active_count, 10);
+    });
+
+    leadsRes.rows.forEach(r => {
+      const state = r.state;
+      if (statsMap[state]) {
+        const cnt = parseInt(r.count, 10);
+        statsMap[state].recordsCollected += cnt;
+        if (r.verification_status === 'VERIFIED') {
+          statsMap[state].verifiedRecords += cnt;
+        } else if (r.verification_status === 'PENDING_OWNERSHIP_MATCH' || r.verification_status === 'PENDING_REVIEW' || r.verification_status === 'PENDING') {
+          statsMap[state].pendingRecords += cnt;
+        } else if (r.verification_status === 'REJECTED') {
+          statsMap[state].rejectedRecords += cnt;
+        }
+      }
+    });
+
+    scrapesRes.rows.forEach(r => {
+      if (statsMap[r.state]) {
+        statsMap[r.state].countiesScraped = parseInt(r.scraped_count, 10);
+        statsMap[r.state].lastScrapeDate = r.last_scrape;
+        statsMap[r.state].lastSuccessfulScrapeDate = r.last_success;
+      }
+    });
+
+    return { success: true, stats: Object.values(statsMap) };
+  } catch (err) {
+    fastify.log.error(err);
+    return reply.status(500).send({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 

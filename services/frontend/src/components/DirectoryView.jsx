@@ -914,6 +914,7 @@ export default function DirectoryView({ onSelectLead, maskedToggle = true }) {
                     No leads found matching current criteria.
                   </td>
                 </tr>
+              ) : (
                 leads.map(lead => {
                   const isClaimed = lead.claimStatus === 'Claimed';
                   const isSold = lead.claimStatus === 'Sold';

@@ -5,6 +5,41 @@
 const { calculateOpportunityScore } = require('./scoring-engine'); // We will create this next
 const crypto = require('crypto');
 
+function normalizeAddress(street) {
+  if (!street) return '';
+  let str = street.toLowerCase().trim();
+  str = str.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+  str = str.replace(/\s+/g, ' ');
+  const tokens = str.split(' ');
+  const normalizedTokens = tokens.map(token => {
+    if (token === 'north') return 'n';
+    if (token === 'south') return 's';
+    if (token === 'east') return 'e';
+    if (token === 'west') return 'w';
+    if (token === 'northeast') return 'ne';
+    if (token === 'northwest') return 'nw';
+    if (token === 'southeast') return 'se';
+    if (token === 'southwest') return 'sw';
+    if (token === 'street') return 'st';
+    if (token === 'road') return 'rd';
+    if (token === 'avenue') return 'ave';
+    if (token === 'boulevard') return 'blvd';
+    if (token === 'court') return 'ct';
+    if (token === 'drive') return 'dr';
+    if (token === 'lane') return 'ln';
+    if (token === 'place') return 'pl';
+    if (token === 'parkway') return 'pkwy';
+    if (token === 'highway') return 'hwy';
+    if (token === 'terrace') return 'ter';
+    if (token === 'circle') return 'cir';
+    if (token === 'loop') return 'lp';
+    if (token === 'trail') return 'trl';
+    if (token === 'way') return 'wy';
+    return token;
+  });
+  return normalizedTokens.join(' ').trim();
+}
+
 // Priority order for distress types when multiple exist on a single property
 const DISTRESS_PRIORITY = {
   'SHERIFF_SALE': 100,
@@ -46,7 +81,7 @@ async function promoteOrIngestLead(client, record) {
   let leadId = null;
   let resolvedRecord = { ...record };
   let resolvedFilingType = filingType;
-  let resolvedVerificationStatus = isVerified ? 'VERIFIED' : 'UNVERIFIED';
+  let resolvedVerificationStatus = isVerified ? 'VERIFIED' : 'REJECTED';
 
   // 1. Ownership Match Engine for Probate
   if (filingType === 'PROBATE_CASE' || filingType === 'PROBATE') {
@@ -112,6 +147,7 @@ async function promoteOrIngestLead(client, record) {
   const city = resolvedRecord.propertyAddress?.city?.trim() || null;
   const state = resolvedRecord.propertyAddress?.state?.trim() || null;
   let zip = resolvedRecord.propertyAddress?.zip?.trim() || null;
+  const normalizedAddr = normalizeAddress(street);
 
   if (!zip && street) {
     const zipLookup = await client.query(
@@ -213,12 +249,16 @@ async function promoteOrIngestLead(client, record) {
 
 
 
-  // 2. Check if a property with this address already exists
+  // 2. Layered Deduplication Engine (Level 1 to Level 4)
   let propertyCheck = { rows: [] };
+  const lat = resolvedRecord.latitude !== undefined ? (resolvedRecord.latitude === null ? null : parseFloat(resolvedRecord.latitude)) : (street ? (35.0 + (Math.random() - 0.5) * 1.5) : null);
+  const lng = resolvedRecord.longitude !== undefined ? (resolvedRecord.longitude === null ? null : parseFloat(resolvedRecord.longitude)) : (street ? (-85.0 + (Math.random() - 0.5) * 1.5) : null);
+
   if (street) {
+    // Level 1: Exact Address Match
     if (zip) {
       propertyCheck = await client.query(
-        `SELECT id, filing_type, verification_status, case_number
+        `SELECT id, filing_type, verification_status, case_number, parcel_number, latitude, longitude
          FROM foreclosure_leads 
          WHERE LOWER(TRIM(property_street)) = LOWER(TRIM($1)) 
            AND property_zip = $2 
@@ -227,13 +267,55 @@ async function promoteOrIngestLead(client, record) {
       );
     } else {
       propertyCheck = await client.query(
-        `SELECT id, filing_type, verification_status, case_number
+        `SELECT id, filing_type, verification_status, case_number, parcel_number, latitude, longitude
          FROM foreclosure_leads 
          WHERE LOWER(TRIM(property_street)) = LOWER(TRIM($1)) 
            AND LOWER(TRIM(property_city)) = LOWER(TRIM($2))
          LIMIT 1`,
         [street, city || '']
       );
+    }
+
+    // Level 2: Normalized Address Match
+    if (propertyCheck.rows.length === 0 && normalizedAddr) {
+      propertyCheck = await client.query(
+        `SELECT id, filing_type, verification_status, case_number, parcel_number, latitude, longitude
+         FROM foreclosure_leads 
+         WHERE normalized_address = $1 LIMIT 1`,
+        [normalizedAddr]
+      );
+      if (propertyCheck.rows.length > 0) {
+        console.log(`[PromotionEngine] Deduplication Level 2 Match: "${street}" matches ID ${propertyCheck.rows[0].id}`);
+      }
+    }
+  }
+
+  // Level 3: Parcel Number Match
+  if (propertyCheck.rows.length === 0 && parcelNumber && parcelNumber.trim() !== '') {
+    propertyCheck = await client.query(
+      `SELECT id, filing_type, verification_status, case_number, parcel_number, latitude, longitude
+       FROM foreclosure_leads 
+       WHERE LOWER(TRIM(parcel_number)) = LOWER(TRIM($1)) AND county_code = $2 LIMIT 1`,
+      [parcelNumber, countyCode]
+    );
+    if (propertyCheck.rows.length > 0) {
+      console.log(`[PromotionEngine] Deduplication Level 3 Match: Parcel "${parcelNumber}" matches ID ${propertyCheck.rows[0].id}`);
+    }
+  }
+
+  // Level 4: Geographic Coordinates Match (within ~70 feet / 0.0002 deg)
+  if (propertyCheck.rows.length === 0 && lat && lng) {
+    propertyCheck = await client.query(
+      `SELECT id, filing_type, verification_status, case_number, parcel_number, latitude, longitude
+       FROM foreclosure_leads 
+       WHERE county_code = $1 
+         AND ABS(latitude - $2) <= 0.0002 
+         AND ABS(longitude - $3) <= 0.0002 
+       LIMIT 1`,
+      [countyCode, lat, lng]
+    );
+    if (propertyCheck.rows.length > 0) {
+      console.log(`[PromotionEngine] Deduplication Level 4 Match: Coordinates (${lat}, ${lng}) matches ID ${propertyCheck.rows[0].id}`);
     }
   }
 
@@ -341,9 +423,6 @@ async function promoteOrIngestLead(client, record) {
 
   } else {
     // 2. New Lead Ingestion
-    const lat = resolvedRecord.latitude !== undefined ? (resolvedRecord.latitude === null ? null : parseFloat(resolvedRecord.latitude)) : (street ? (35.0 + (Math.random() - 0.5) * 1.5) : null);
-    const lng = resolvedRecord.longitude !== undefined ? (resolvedRecord.longitude === null ? null : parseFloat(resolvedRecord.longitude)) : (street ? (-85.0 + (Math.random() - 0.5) * 1.5) : null);
-
     const leadInsertQuery = `
       INSERT INTO foreclosure_leads (
         county_code, case_number, filing_date, filing_type, owner_name, parcel_number,
@@ -351,11 +430,11 @@ async function promoteOrIngestLead(client, record) {
         property_street, property_city, property_state, property_zip,
         mailing_street, mailing_city, mailing_state, mailing_zip,
         longitude, latitude, document_url, raw_payload, hash_signature,
-        verification_status, verified_at
+        verification_status, verified_at, normalized_address
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18,
-        $19, $20, $21, $22, $23, $24, $25
+        $19, $20, $21, $22, $23, $24, $25, $26
       ) RETURNING id;
     `;
 
@@ -366,7 +445,8 @@ async function promoteOrIngestLead(client, record) {
       mailingAddress?.street || null, mailingAddress?.city || null, mailingAddress?.state || null, mailingAddress?.zip || null,
       lng, lat, documentUrl, JSON.stringify(rawPayload), hashSignature,
       resolvedVerificationStatus,
-      resolvedVerificationStatus === 'VERIFIED' ? new Date() : null
+      resolvedVerificationStatus === 'VERIFIED' ? new Date() : null,
+      normalizedAddr
     ]);
 
     leadId = leadRes.rows[0].id;
@@ -440,7 +520,14 @@ async function promoteOrIngestLead(client, record) {
     }
 
     await refreshLeadScore(client, leadId, resolvedFilingType);
-    return { leadId, action: resolvedVerificationStatus === 'VERIFIED' ? 'INGESTED_VERIFIED' : 'INGESTED_UNVERIFIED' };
+    return { 
+      leadId, 
+      action: resolvedVerificationStatus === 'VERIFIED' 
+        ? 'INGESTED_VERIFIED' 
+        : (resolvedVerificationStatus === 'PENDING_OWNERSHIP_MATCH' 
+            ? 'INGESTED_PENDING' 
+            : 'INGESTED_' + resolvedVerificationStatus) 
+    };
   }
 }
 
