@@ -164,7 +164,7 @@ async function seedPlatform() {
       [
         '90bc410a-4fb4-81d3-92f7-f98212abcdef', // matches crm user_id in server.js default fallback
         'mrronaldlewisjr@gmail.com',
-        '$2b$12$securepasswordhashplaceholderhere',
+        '$2b$10$6PRepgU7XV.6v.rgGOcmoOUxDFMeOH7iz0oJfIH1LT3SKlWijUr0K', // bcrypt hash of 'Pluck4eva1981!'
         'Ronald Lewis Jr',
         'super-secret-mcp-scraper-key-token-rotation'
       ]
