@@ -148,9 +148,10 @@ async function scrapeGeorgia(browser) {
         function parseNotice(text, defaultCounty) {
           const occupantRegex = /Occupant\s+(?:\+\+)?(\d+\s+[A-Za-z0-9\s.#-]+?(?:St|Ave|Rd|Dr|Blvd|Ln|Way|Ct|Pl|Cir|Pkwy|Hwy|Drive|Street|Avenue|Road|Boulevard|Lane|Circle|Place|Court|Trail|Ter|Trl|Cir|St)),\s*([A-Za-z\s.]+)\s*County,\s*(?:Georgia|GA)/i;
           const addressRegex = /(\d+\s+[A-Za-z0-9\s.#-]+?(?:St|Ave|Rd|Dr|Blvd|Ln|Way|Ct|Pl|Cir|Pkwy|Hwy|Drive|Street|Avenue|Road|Boulevard|Lane|Circle|Place|Court|Trail|Ter|Trl|Cir|St))[A-Za-z0-9\s.#-]{0,30},\s*([A-Za-z\s.]+),\s*GA\s*(\d{5})?/i;
+          const junkRegex = /\b(?:NOTICE|REDEMPTION|FORECLOSURE|RIGHT TO|O\.C\.G\.A|SECTION|COURT|STATE OF|CHAPTER|LAW|STATUTE|CLERK|COURTHOUSE|OFFICE|REALAUCTION|SUITE|PUBLIC RECORD|ADMINISTRATION|ORGAN LIST|PRESS ASSOCIATION)\b/i;
           
           let m = occupantRegex.exec(text);
-          if (m) {
+          if (m && !junkRegex.test(m[1])) {
             return {
               street: m[1].replace(/^\+\+/, '').trim(),
               city: m[2].trim(),
@@ -160,7 +161,7 @@ async function scrapeGeorgia(browser) {
           }
           
           m = addressRegex.exec(text);
-          if (m) {
+          if (m && !junkRegex.test(m[1])) {
             return {
               street: m[1].trim(),
               city: m[2].trim(),
@@ -171,7 +172,7 @@ async function scrapeGeorgia(browser) {
           
           const streetRegex = /(\d+\s+[A-Za-z0-9\s.#-]+?(?:St|Ave|Rd|Dr|Blvd|Ln|Way|Ct|Pl|Cir|Pkwy|Hwy|Drive|Street|Avenue|Road|Boulevard|Lane|Circle|Place|Court|Trail|Ter|Trl|Cir|St|MacDonald Lane|Parkview Court))/i;
           const streetMatch = text.match(streetRegex);
-          if (streetMatch) {
+          if (streetMatch && !junkRegex.test(streetMatch[1])) {
             const street = streetMatch[1].trim();
             const cityMatch = text.substring(streetMatch.index + street.length).match(/([A-Z][a-z]+),\s*GA/);
             const zipMatch = text.substring(streetMatch.index + street.length).match(/\b(3\d{4})\b/);
