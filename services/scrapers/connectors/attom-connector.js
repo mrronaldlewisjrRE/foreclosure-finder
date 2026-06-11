@@ -213,7 +213,18 @@ const COUNTY_ZIP_MAP = {
   'VA_ARLINGTON': '22201',
   'VA_PRINCEWILLIAM': '22191',
   'VA_LOUDOUN': '20176',
-  'VA_HAMPTON': '23669'
+  'VA_HAMPTON': '23669',
+
+  // Ohio expansion
+  'OH_FRANKLIN': '43215',
+  'OH_HAMILTON': '45202',
+  'OH_SUMMIT': '44308',
+  'OH_MONTGOMERY': '45402',
+  'OH_LUCAS': '43604',
+  'OH_BUTLER': '45011',
+  'OH_STARK': '44702',
+  'OH_LORAIN': '44035',
+  'OH_MAHONING': '44503'
 };
 
 class AttomConnector extends BaseConnector {

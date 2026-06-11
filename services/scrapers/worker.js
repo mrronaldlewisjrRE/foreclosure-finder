@@ -11,6 +11,7 @@ const IndianaConnector = require('./connectors/indiana-connector');
 const NewJerseyConnector = require('./connectors/newjersey-connector');
 const NewYorkConnector = require('./connectors/newyork-connector');
 const VirginiaConnector = require('./connectors/virginia-connector');
+const OhioConnector = require('./connectors/ohio-connector');
 
 // Non-TN connectors for states with their own public data sources
 // Priority 1: These dedicated connectors fire BEFORE the ATTOM fallback
@@ -66,6 +67,17 @@ const NON_TN_CONNECTORS = {
   'VA_PRINCEWILLIAM': VirginiaConnector,
   'VA_LOUDOUN': VirginiaConnector,
   'VA_HAMPTON': VirginiaConnector,
+  // Ohio (10 counties)
+  'OH_CUYAHOGA': OhioConnector,
+  'OH_FRANKLIN': OhioConnector,
+  'OH_HAMILTON': OhioConnector,
+  'OH_SUMMIT': OhioConnector,
+  'OH_MONTGOMERY': OhioConnector,
+  'OH_LUCAS': OhioConnector,
+  'OH_BUTLER': OhioConnector,
+  'OH_STARK': OhioConnector,
+  'OH_LORAIN': OhioConnector,
+  'OH_MAHONING': OhioConnector,
 };
 
 const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:54322/postgres';
@@ -151,7 +163,7 @@ async function runWorker() {
       // These use real public-record data; some internally use ATTOM for enrichment
       const attomBasedCounties = ['LA_ORLEANS', 'LA_JEFFERSON', 'TX_HARRIS', 'TX_FORTBEND',
         // New state connectors also use ATTOM for property enrichment
-        ...Object.keys(NON_TN_CONNECTORS).filter(k => k.startsWith('IN_') || k.startsWith('NJ_') || k.startsWith('NY_') || k.startsWith('VA_'))
+        ...Object.keys(NON_TN_CONNECTORS).filter(k => k.startsWith('IN_') || k.startsWith('NJ_') || k.startsWith('NY_') || k.startsWith('VA_') || k.startsWith('OH_'))
       ];
       if (attomBasedCounties.includes(county)) {
         isAttomBased = true;

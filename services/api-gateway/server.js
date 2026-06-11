@@ -148,6 +148,17 @@ async function runCountyRegistrationMigration() {
     { code: 'VA_PRINCEWILLIAM', state: 'VA', name: 'Prince William County' },
     { code: 'VA_LOUDOUN', state: 'VA', name: 'Loudoun County' },
     { code: 'VA_HAMPTON', state: 'VA', name: 'Hampton City' },
+    // Ohio
+    { code: 'OH_CUYAHOGA', state: 'OH', name: 'Cuyahoga County' },
+    { code: 'OH_FRANKLIN', state: 'OH', name: 'Franklin County' },
+    { code: 'OH_HAMILTON', state: 'OH', name: 'Hamilton County' },
+    { code: 'OH_SUMMIT', state: 'OH', name: 'Summit County' },
+    { code: 'OH_MONTGOMERY', state: 'OH', name: 'Montgomery County' },
+    { code: 'OH_LUCAS', state: 'OH', name: 'Lucas County' },
+    { code: 'OH_BUTLER', state: 'OH', name: 'Butler County' },
+    { code: 'OH_STARK', state: 'OH', name: 'Stark County' },
+    { code: 'OH_LORAIN', state: 'OH', name: 'Lorain County' },
+    { code: 'OH_MAHONING', state: 'OH', name: 'Mahoning County' },
   ];
 
   try {
@@ -165,7 +176,7 @@ async function runCountyRegistrationMigration() {
         await pool.query('UPDATE counties SET is_active = TRUE WHERE county_code = $1', [c.code]);
       }
     }
-    console.log(`[API Gateway] County registration migration: ${added} new counties added (IN/NJ/NY/VA).`);
+    console.log(`[API Gateway] County registration migration: ${added} new counties added (IN/NJ/NY/VA/OH).`);
   } catch (err) {
     console.error('[API Gateway] County registration migration error:', err.message);
   }
@@ -727,6 +738,10 @@ fastify.get('/api/v1/counties/stats', async (req, reply) => {
       'VA_NORFOLK': 'Norfolk', 'VA_HENRICO': 'Henrico County', 'VA_CHESTERFIELD': 'Chesterfield County',
       'VA_ARLINGTON': 'Arlington County', 'VA_PRINCEWILLIAM': 'Prince William County',
       'VA_LOUDOUN': 'Loudoun County', 'VA_HAMPTON': 'Hampton',
+      // Ohio
+      'OH_CUYAHOGA': 'Cuyahoga County', 'OH_FRANKLIN': 'Franklin County', 'OH_HAMILTON': 'Hamilton County',
+      'OH_SUMMIT': 'Summit County', 'OH_MONTGOMERY': 'Montgomery County', 'OH_LUCAS': 'Lucas County',
+      'OH_BUTLER': 'Butler County', 'OH_STARK': 'Stark County', 'OH_LORAIN': 'Lorain County', 'OH_MAHONING': 'Mahoning County',
     };
 
     const counties = result.rows.map(r => ({
