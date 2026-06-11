@@ -101,6 +101,76 @@ async function runSubscriptionMigration() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// STATE EXPANSION COUNTY REGISTRATION (IN, NJ, NY, VA)
+// ═══════════════════════════════════════════════════════════
+async function runCountyRegistrationMigration() {
+  const counties = [
+    // Indiana
+    { code: 'IN_MARION', state: 'IN', name: 'Marion County' },
+    { code: 'IN_LAKE', state: 'IN', name: 'Lake County' },
+    { code: 'IN_ALLEN', state: 'IN', name: 'Allen County' },
+    { code: 'IN_HAMILTON', state: 'IN', name: 'Hamilton County' },
+    { code: 'IN_STJOSEPH', state: 'IN', name: 'St. Joseph County' },
+    { code: 'IN_ELKHART', state: 'IN', name: 'Elkhart County' },
+    { code: 'IN_TIPPECANOE', state: 'IN', name: 'Tippecanoe County' },
+    { code: 'IN_VANDERBURGH', state: 'IN', name: 'Vanderburgh County' },
+    // New Jersey
+    { code: 'NJ_ESSEX', state: 'NJ', name: 'Essex County' },
+    { code: 'NJ_HUDSON', state: 'NJ', name: 'Hudson County' },
+    { code: 'NJ_BERGEN', state: 'NJ', name: 'Bergen County' },
+    { code: 'NJ_PASSAIC', state: 'NJ', name: 'Passaic County' },
+    { code: 'NJ_MIDDLESEX', state: 'NJ', name: 'Middlesex County' },
+    { code: 'NJ_MONMOUTH', state: 'NJ', name: 'Monmouth County' },
+    { code: 'NJ_CAMDEN', state: 'NJ', name: 'Camden County' },
+    { code: 'NJ_MERCER', state: 'NJ', name: 'Mercer County' },
+    { code: 'NJ_UNION', state: 'NJ', name: 'Union County' },
+    { code: 'NJ_OCEAN', state: 'NJ', name: 'Ocean County' },
+    // New York
+    { code: 'NY_NEWYORK', state: 'NY', name: 'New York County' },
+    { code: 'NY_KINGS', state: 'NY', name: 'Kings County' },
+    { code: 'NY_QUEENS', state: 'NY', name: 'Queens County' },
+    { code: 'NY_BRONX', state: 'NY', name: 'Bronx County' },
+    { code: 'NY_RICHMOND', state: 'NY', name: 'Richmond County' },
+    { code: 'NY_NASSAU', state: 'NY', name: 'Nassau County' },
+    { code: 'NY_SUFFOLK', state: 'NY', name: 'Suffolk County' },
+    { code: 'NY_WESTCHESTER', state: 'NY', name: 'Westchester County' },
+    { code: 'NY_ERIE', state: 'NY', name: 'Erie County' },
+    { code: 'NY_MONROE', state: 'NY', name: 'Monroe County' },
+    // Virginia
+    { code: 'VA_FAIRFAX', state: 'VA', name: 'Fairfax County' },
+    { code: 'VA_RICHMONDCITY', state: 'VA', name: 'Richmond City' },
+    { code: 'VA_VIRGINIABEACH', state: 'VA', name: 'Virginia Beach City' },
+    { code: 'VA_NORFOLK', state: 'VA', name: 'Norfolk City' },
+    { code: 'VA_HENRICO', state: 'VA', name: 'Henrico County' },
+    { code: 'VA_CHESTERFIELD', state: 'VA', name: 'Chesterfield County' },
+    { code: 'VA_ARLINGTON', state: 'VA', name: 'Arlington County' },
+    { code: 'VA_PRINCEWILLIAM', state: 'VA', name: 'Prince William County' },
+    { code: 'VA_LOUDOUN', state: 'VA', name: 'Loudoun County' },
+    { code: 'VA_HAMPTON', state: 'VA', name: 'Hampton City' },
+  ];
+
+  try {
+    let added = 0;
+    for (const c of counties) {
+      const existing = await pool.query('SELECT county_code FROM counties WHERE county_code = $1', [c.code]);
+      if (existing.rows.length === 0) {
+        await pool.query(
+          `INSERT INTO counties (id, county_code, county_name, state, is_active, data_quality_score, created_at, updated_at)
+           VALUES (uuid_generate_v4(), $1, $2, $3, TRUE, 95, NOW(), NOW())`,
+          [c.code, c.name, c.state]
+        );
+        added++;
+      } else {
+        await pool.query('UPDATE counties SET is_active = TRUE WHERE county_code = $1', [c.code]);
+      }
+    }
+    console.log(`[API Gateway] County registration migration: ${added} new counties added (IN/NJ/NY/VA).`);
+  } catch (err) {
+    console.error('[API Gateway] County registration migration error:', err.message);
+  }
+}
+
 // Subscription plan constants
 const PLAN_LIMITS = {
   FREE_TRIAL: { leadViews: 10, claims: 1, durationDays: 2, masked: true, features: ['dashboard', 'directory', 'map', 'crm'] },
@@ -3399,6 +3469,9 @@ const start = async () => {
 
   // Run subscription schema migration
   await runSubscriptionMigration();
+
+  // Run state expansion county registration (IN, NJ, NY, VA)
+  await runCountyRegistrationMigration();
 
   // Run MyWholesaleOS Phase 1 migration
   await runMyWholesaleOSMigration();
