@@ -79,6 +79,7 @@ async function runSubscriptionMigration() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS usage_reset_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS lifetime_access BOOLEAN DEFAULT FALSE;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS is_comped BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS data_masked BOOLEAN DEFAULT FALSE;
     `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS subscription_payments (
@@ -806,11 +807,11 @@ fastify.get('/api/v1/leads', async (req, reply) => {
     const listRes = await pool.query(mainQuery, [...queryParams, parseInt(limit, 10), offset]);
     const countRes = await pool.query(countQuery, queryParams);
 
-    // Subscription-aware masking: admins NEVER masked, FREE_TRIAL and STARTER always masked, PROFESSIONAL can toggle
+    // Subscription-aware masking: check per-user data_masked flag set by admin
     const effectiveUserPlan = req.user ? resolveSubscriptionPlan(req.user) : 'FREE_TRIAL';
     const isAdminUser = req.user && (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN');
-    const planMasked = PLAN_LIMITS[effectiveUserPlan] ? PLAN_LIMITS[effectiveUserPlan].masked : true;
-    const isMasked = isAdminUser ? false : (planMasked || (req.query.masked === 'true'));
+    const userDataMasked = req.user ? (req.user.data_masked === true) : false;
+    const isMasked = isAdminUser ? false : userDataMasked;
 
     const formattedLeads = listRes.rows.map(row => ({
       id: row.id,
@@ -894,8 +895,8 @@ fastify.get('/api/v1/leads/:id', async (req, reply) => {
 
     const effectiveUserPlan = req.user ? resolveSubscriptionPlan(req.user) : 'FREE_TRIAL';
     const isAdminDetail = req.user && (req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN');
-    const planMasked = PLAN_LIMITS[effectiveUserPlan] ? PLAN_LIMITS[effectiveUserPlan].masked : true;
-    const isMasked = isAdminDetail ? false : (planMasked || (req.query.masked === 'true'));
+    const userDataMasked = req.user ? (req.user.data_masked === true) : false;
+    const isMasked = isAdminDetail ? false : userDataMasked;
 
     return {
       id: row.id,
@@ -1678,6 +1679,7 @@ fastify.get('/api/v1/admin/users', { preHandler: requireRole(['ADMIN', 'SUPER_AD
     const q = `
       SELECT u.id, u.email, u.full_name as "fullName", u.role, u.is_active as "isActive",
              u.last_login_at as "lastLoginAt", u.last_login_ip as "lastLoginIp", u.created_at as "createdAt",
+             COALESCE(u.data_masked, FALSE) as "dataMasked",
              (SELECT COUNT(*)::int FROM crm_pipelines cp WHERE cp.user_id = u.id) as "claimCount",
              (SELECT COUNT(*)::int FROM property_sales ps WHERE ps.user_id = u.id) as "soldCount"
       FROM users u
@@ -1764,6 +1766,37 @@ fastify.post('/api/v1/admin/users/:id/reactivate', { preHandler: requireRole(['A
   }
 });
 
+// POST /api/v1/admin/users/:id/data-access — toggle data masking per user
+fastify.post('/api/v1/admin/users/:id/data-access', { preHandler: requireRole(['ADMIN', 'SUPER_ADMIN']) }, async (req, reply) => {
+  const { id } = req.params;
+  const { masked } = req.body || {};
+
+  if (typeof masked !== 'boolean') {
+    return reply.status(400).send({ error: 'masked field (boolean) is required.' });
+  }
+
+  try {
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    if (userCheck.rows.length === 0) {
+      return reply.status(404).send({ error: 'User not found.' });
+    }
+    const targetUser = userCheck.rows[0];
+
+    // Cannot mask SUPER_ADMIN accounts
+    if (targetUser.role === 'SUPER_ADMIN') {
+      return reply.status(403).send({ error: 'Cannot modify SUPER_ADMIN data access.' });
+    }
+
+    await pool.query('UPDATE users SET data_masked = $1 WHERE id = $2', [masked, id]);
+
+    const action = masked ? 'USER_DATA_MASKED' : 'USER_DATA_UNMASKED';
+    await logAuditAction(req.user.email, targetUser.email, action, `${masked ? 'Masked' : 'Unmasked'} data access for ${targetUser.email}`);
+
+    return { success: true, message: `Data access ${masked ? 'masked' : 'unmasked'} for ${targetUser.email}.` };
+  } catch (err) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
 // DELETE /api/v1/admin/users/:id
 fastify.delete('/api/v1/admin/users/:id', { preHandler: requireRole(['SUPER_ADMIN']) }, async (req, reply) => {
   const { id } = req.params;

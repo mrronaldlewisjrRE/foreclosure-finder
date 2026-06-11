@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, ShieldAlert, ShieldCheck, UserX, UserCheck, Trash2, ShieldCheck as SuperAdminIcon, Shield, Ban, Loader2 } from 'lucide-react';
+import { Search, ShieldAlert, ShieldCheck, UserX, UserCheck, Trash2, ShieldCheck as SuperAdminIcon, Shield, Ban, Loader2, Eye, EyeOff } from 'lucide-react';
 import { API_BASE_URL, fetchWithAuth } from '../config';
 
 export default function UserManagementView({ currentUser }) {
@@ -134,6 +134,30 @@ export default function UserManagementView({ currentUser }) {
     }
   }
 
+  async function handleToggleMask(user) {
+    const currentlyMasked = user.dataMasked !== false; // default to masked if field is missing
+    const action = currentlyMasked ? 'unmask' : 'mask';
+    const confirmMsg = `Are you sure you want to ${action} data access for ${user.email}?`;
+    if (!confirm(confirmMsg)) return;
+
+    setActionLoading(user.id);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/users/${user.id}/data-access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ masked: !currentlyMasked })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Failed to ${action} user data access.`);
+      alert(data.message || `Data access ${action}ed for ${user.email}.`);
+      await fetchUsers();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   const filteredUsers = users.filter(u => 
     (u.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,6 +210,7 @@ export default function UserManagementView({ currentUser }) {
               <th>IP Address</th>
               <th style={{ textAlign: 'center' }}>Claims</th>
               <th style={{ textAlign: 'center' }}>Sales</th>
+              <th>Data Access</th>
               <th>Access Status</th>
               <th style={{ textAlign: 'right' }}>Administrative Controls</th>
             </tr>
@@ -193,13 +218,13 @@ export default function UserManagementView({ currentUser }) {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                <td colSpan="10" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
                   Retrieving governance registry database records...
                 </td>
               </tr>
             ) : filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                <td colSpan="10" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
                   No user records found matching active query bounds.
                 </td>
               </tr>
@@ -273,6 +298,29 @@ export default function UserManagementView({ currentUser }) {
                       {user.soldCount || 0}
                     </td>
 
+                    {/* Data Access */}
+                    <td>
+                      {(() => {
+                        const isMasked = user.dataMasked !== false;
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="badge" style={{
+                              background: isMasked ? 'var(--rose-glow)' : 'var(--emerald-glow)',
+                              color: isMasked ? 'var(--rose)' : 'var(--emerald)',
+                              border: `1px solid ${isMasked ? 'var(--rose)' : 'var(--emerald)'}`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.68rem',
+                            }}>
+                              {isMasked ? <EyeOff size={10} /> : <Eye size={10} />}
+                              {isMasked ? 'Masked' : 'Full Access'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </td>
+
                     {/* Access Status */}
                     <td>
                       {user.isActive ? (
@@ -324,6 +372,19 @@ export default function UserManagementView({ currentUser }) {
                             >
                               <Ban size={13} style={{ color: 'var(--rose)' }} />
                               Block IP
+                            </button>
+                          )}
+
+                          {/* Toggle Data Masking */}
+                          {!isUserSuperAdmin && !isSelf && (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleToggleMask(user)}
+                              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                              title={user.dataMasked !== false ? 'Grant Full Data Access' : 'Mask Data Access'}
+                            >
+                              {user.dataMasked !== false ? <Eye size={13} style={{ color: 'var(--emerald)' }} /> : <EyeOff size={13} style={{ color: 'var(--amber)' }} />}
+                              {user.dataMasked !== false ? 'Unmask' : 'Mask'}
                             </button>
                           )}
 

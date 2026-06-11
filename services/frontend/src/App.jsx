@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, TableProperties, Map, Briefcase, FileClock, ShieldAlert, ShieldCheck, Award, LogOut, Users, DollarSign, Eye, EyeOff, CreditCard, ArrowUpCircle, Menu, X, Search, ClipboardList, Calculator, FileText, Handshake, BarChart3, ChevronDown, ChevronRight, Settings } from 'lucide-react';
+import { LayoutDashboard, TableProperties, Map, Briefcase, FileClock, ShieldAlert, ShieldCheck, Award, LogOut, Users, DollarSign, CreditCard, ArrowUpCircle, Menu, X, Search, ClipboardList, Calculator, FileText, Handshake, BarChart3, ChevronDown, ChevronRight, Settings } from 'lucide-react';
 import CommandCenterDashboard from './components/CommandCenterDashboard';
 import DirectoryView from './components/DirectoryView';
 import MapView from './components/MapView';
@@ -46,15 +46,7 @@ export default function App() {
 
   const [activeView, setActiveView] = useState('dashboard');
   const [selectedLeadId, setSelectedLeadId] = useState(null);
-  const [maskedToggle, setMaskedToggle] = useState(() => {
-    try {
-      const stored = localStorage.getItem('ff_auth_user');
-      const u = stored ? JSON.parse(stored) : null;
-      // Admins always start unmasked
-      if (u?.role === 'ADMIN' || u?.role === 'SUPER_ADMIN') return false;
-    } catch {}
-    return true;
-  });
+  const [maskedToggle, setMaskedToggle] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dealRadarExpanded, setDealRadarExpanded] = useState(false);
@@ -420,61 +412,7 @@ export default function App() {
                 Pricing Plans
               </button>
             )}
-            {/* Admin-only Data Masking Switch Toggle */}
-            {isAdminOrSuper && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2px',
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                padding: '3px',
-                borderRadius: 'var(--radius-md)'
-              }}>
-                <button
-                  onClick={() => setMaskedToggle(true)}
-                  style={{
-                    background: maskedToggle ? 'var(--bg-elevated)' : 'transparent',
-                    border: maskedToggle ? '1px solid var(--border-hover)' : '1px solid transparent',
-                    color: maskedToggle ? 'var(--text-primary)' : 'var(--text-muted)',
-                    fontWeight: 500,
-                    fontSize: '0.72rem',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'var(--transition-fast)',
-                    fontFamily: 'var(--font-sans)',
-                  }}
-                >
-                  <EyeOff size={12} />
-                  <span>Masked</span>
-                </button>
-                <button
-                  onClick={() => setMaskedToggle(false)}
-                  style={{
-                    background: !maskedToggle ? 'var(--bg-elevated)' : 'transparent',
-                    border: !maskedToggle ? '1px solid var(--border-hover)' : '1px solid transparent',
-                    color: !maskedToggle ? 'var(--text-primary)' : 'var(--text-muted)',
-                    fontWeight: 500,
-                    fontSize: '0.72rem',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'var(--transition-fast)',
-                    fontFamily: 'var(--font-sans)',
-                  }}
-                >
-                  <Eye size={12} />
-                  <span>Full</span>
-                </button>
-              </div>
-            )}
+
             
             <div className="county-pill">
               <div className="pulse-dot" />
