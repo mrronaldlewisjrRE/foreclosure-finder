@@ -640,6 +640,23 @@ fastify.get('/api/v1/counties/stats', async (req, reply) => {
       'FORSYTH': 'Forsyth County', 'CHEROKEE': 'Cherokee County', 'HALL': 'Hall County',
       'BARROW': 'Barrow County', 'WALTON': 'Walton County', 'NEWTON': 'Newton County',
       'PAULDING': 'Paulding County', 'BARTOW': 'Bartow County', 'CARROLL': 'Carroll County',
+      // Indiana
+      'IN_MARION': 'Marion County', 'IN_LAKE': 'Lake County', 'IN_ALLEN': 'Allen County',
+      'IN_HAMILTON': 'Hamilton County', 'IN_STJOSEPH': 'St. Joseph County',
+      'IN_ELKHART': 'Elkhart County', 'IN_TIPPECANOE': 'Tippecanoe County', 'IN_VANDERBURGH': 'Vanderburgh County',
+      // New Jersey
+      'NJ_ESSEX': 'Essex County', 'NJ_HUDSON': 'Hudson County', 'NJ_BERGEN': 'Bergen County',
+      'NJ_PASSAIC': 'Passaic County', 'NJ_MIDDLESEX': 'Middlesex County', 'NJ_MONMOUTH': 'Monmouth County',
+      'NJ_CAMDEN': 'Camden County', 'NJ_MERCER': 'Mercer County', 'NJ_UNION': 'Union County', 'NJ_OCEAN': 'Ocean County',
+      // New York
+      'NY_NEWYORK': 'New York County', 'NY_KINGS': 'Kings County', 'NY_QUEENS': 'Queens County',
+      'NY_BRONX': 'Bronx County', 'NY_RICHMOND': 'Richmond County', 'NY_NASSAU': 'Nassau County',
+      'NY_SUFFOLK': 'Suffolk County', 'NY_WESTCHESTER': 'Westchester County', 'NY_ERIE': 'Erie County', 'NY_MONROE': 'Monroe County',
+      // Virginia
+      'VA_FAIRFAX': 'Fairfax County', 'VA_RICHMONDCITY': 'Richmond City', 'VA_VIRGINIABEACH': 'Virginia Beach',
+      'VA_NORFOLK': 'Norfolk', 'VA_HENRICO': 'Henrico County', 'VA_CHESTERFIELD': 'Chesterfield County',
+      'VA_ARLINGTON': 'Arlington County', 'VA_PRINCEWILLIAM': 'Prince William County',
+      'VA_LOUDOUN': 'Loudoun County', 'VA_HAMPTON': 'Hampton',
     };
 
     const counties = result.rows.map(r => ({

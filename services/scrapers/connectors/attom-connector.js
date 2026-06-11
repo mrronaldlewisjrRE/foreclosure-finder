@@ -173,7 +173,47 @@ const COUNTY_ZIP_MAP = {
   'VA_RICHMOND': '23219',
   'VA_CHESTERFIELD': '23832',
   'VA_HENRICO': '23223',
-  'VA_HANOVER': '23069'
+  'VA_HANOVER': '23069',
+
+  // Indiana expansion
+  'IN_LAKE': '46402',
+  'IN_ALLEN': '46802',
+  'IN_HAMILTON': '46032',
+  'IN_STJOSEPH': '46601',
+  'IN_ELKHART': '46516',
+  'IN_TIPPECANOE': '47901',
+  'IN_VANDERBURGH': '47708',
+
+  // New Jersey expansion
+  'NJ_HUDSON': '07302',
+  'NJ_BERGEN': '07601',
+  'NJ_PASSAIC': '07501',
+  'NJ_MIDDLESEX': '08901',
+  'NJ_MONMOUTH': '07728',
+  'NJ_CAMDEN': '08101',
+  'NJ_MERCER': '08608',
+  'NJ_UNION': '07201',
+  'NJ_OCEAN': '08753',
+
+  // New York expansion
+  'NY_KINGS': '11201',
+  'NY_QUEENS': '11101',
+  'NY_BRONX': '10451',
+  'NY_RICHMOND': '10301',
+  'NY_NASSAU': '11501',
+  'NY_SUFFOLK': '11901',
+  'NY_WESTCHESTER': '10601',
+  'NY_ERIE': '14202',
+  'NY_MONROE': '14604',
+
+  // Virginia expansion
+  'VA_RICHMONDCITY': '23219',
+  'VA_VIRGINIABEACH': '23451',
+  'VA_NORFOLK': '23510',
+  'VA_ARLINGTON': '22201',
+  'VA_PRINCEWILLIAM': '22191',
+  'VA_LOUDOUN': '20176',
+  'VA_HAMPTON': '23669'
 };
 
 class AttomConnector extends BaseConnector {

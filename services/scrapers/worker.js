@@ -6,14 +6,66 @@ const AttomConnector = require('./connectors/attom-connector');
 const BCNUniversalConnector = require('./connectors/bcn-universal-connector');
 const DavidsonTNProbateConnector = require('./connectors/davidson-tn-probate-connector');
 
+// State-specific connector classes (primary data sources — ATTOM is fallback only)
+const IndianaConnector = require('./connectors/indiana-connector');
+const NewJerseyConnector = require('./connectors/newjersey-connector');
+const NewYorkConnector = require('./connectors/newyork-connector');
+const VirginiaConnector = require('./connectors/virginia-connector');
+
 // Non-TN connectors for states with their own public data sources
+// Priority 1: These dedicated connectors fire BEFORE the ATTOM fallback
 const NON_TN_CONNECTORS = {
+  // Louisiana
   'LA_ORLEANS': require('./connectors/orleans-la-connector'),
   'LA_JEFFERSON': require('./connectors/jefferson-la-connector'),
+  // Texas
   'TX_HARRIS': require('./connectors/harris-tx-connector'),
   'TX_FORTBEND': require('./connectors/fortbend-tx-connector'),
+  // Georgia & Florida
   'GA_FULTON': require('./connectors/fulton-ga-connector'),
-  'FL_HILLSBOROUGH': require('./connectors/hillsborough-fl-connector')
+  'FL_HILLSBOROUGH': require('./connectors/hillsborough-fl-connector'),
+  // Indiana (8 counties)
+  'IN_MARION': IndianaConnector,
+  'IN_LAKE': IndianaConnector,
+  'IN_ALLEN': IndianaConnector,
+  'IN_HAMILTON': IndianaConnector,
+  'IN_STJOSEPH': IndianaConnector,
+  'IN_ELKHART': IndianaConnector,
+  'IN_TIPPECANOE': IndianaConnector,
+  'IN_VANDERBURGH': IndianaConnector,
+  // New Jersey (10 counties)
+  'NJ_ESSEX': NewJerseyConnector,
+  'NJ_HUDSON': NewJerseyConnector,
+  'NJ_BERGEN': NewJerseyConnector,
+  'NJ_PASSAIC': NewJerseyConnector,
+  'NJ_MIDDLESEX': NewJerseyConnector,
+  'NJ_MONMOUTH': NewJerseyConnector,
+  'NJ_CAMDEN': NewJerseyConnector,
+  'NJ_MERCER': NewJerseyConnector,
+  'NJ_UNION': NewJerseyConnector,
+  'NJ_OCEAN': NewJerseyConnector,
+  // New York (10 counties)
+  'NY_NEWYORK': NewYorkConnector,
+  'NY_KINGS': NewYorkConnector,
+  'NY_QUEENS': NewYorkConnector,
+  'NY_BRONX': NewYorkConnector,
+  'NY_RICHMOND': NewYorkConnector,
+  'NY_NASSAU': NewYorkConnector,
+  'NY_SUFFOLK': NewYorkConnector,
+  'NY_WESTCHESTER': NewYorkConnector,
+  'NY_ERIE': NewYorkConnector,
+  'NY_MONROE': NewYorkConnector,
+  // Virginia (10 counties)
+  'VA_FAIRFAX': VirginiaConnector,
+  'VA_RICHMONDCITY': VirginiaConnector,
+  'VA_VIRGINIABEACH': VirginiaConnector,
+  'VA_NORFOLK': VirginiaConnector,
+  'VA_HENRICO': VirginiaConnector,
+  'VA_CHESTERFIELD': VirginiaConnector,
+  'VA_ARLINGTON': VirginiaConnector,
+  'VA_PRINCEWILLIAM': VirginiaConnector,
+  'VA_LOUDOUN': VirginiaConnector,
+  'VA_HAMPTON': VirginiaConnector,
 };
 
 const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:54322/postgres';
@@ -95,13 +147,18 @@ async function runWorker() {
         scrapers.push(new DavidsonTNProbateConnector());
       }
     } else if (NON_TN_CONNECTORS[county]) {
-      // States with dedicated public-data connectors
-      // Note: LA_ORLEANS, LA_JEFFERSON, TX_HARRIS, and TX_FORTBEND are ATTOM-based connectors.
-      const attomBasedCounties = ['LA_ORLEANS', 'LA_JEFFERSON', 'TX_HARRIS', 'TX_FORTBEND'];
+      // States with dedicated public-data connectors (Priority 1)
+      // These use real public-record data; some internally use ATTOM for enrichment
+      const attomBasedCounties = ['LA_ORLEANS', 'LA_JEFFERSON', 'TX_HARRIS', 'TX_FORTBEND',
+        // New state connectors also use ATTOM for property enrichment
+        ...Object.keys(NON_TN_CONNECTORS).filter(k => k.startsWith('IN_') || k.startsWith('NJ_') || k.startsWith('NY_') || k.startsWith('VA_'))
+      ];
       if (attomBasedCounties.includes(county)) {
         isAttomBased = true;
       }
-      scrapers = [new NON_TN_CONNECTORS[county]()];
+      // New state connectors accept countyCode; old ones take no args
+      const ConnectorClass = NON_TN_CONNECTORS[county];
+      scrapers = [new ConnectorClass(county)];
     } else if (isReal) {
       // Counties with ATTOM API coverage fallback
       isAttomBased = true;
