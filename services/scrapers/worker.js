@@ -115,21 +115,29 @@ function postJSON(urlPath, data) {
   });
 }
 
-async function runWorker() {
+async function runWorker(options = {}) {
   console.log('=== FORECLOSUREFINDER INGEST WORKER RUNNING ===');
+  if (options && typeof options === 'object') {
+    console.log('[Worker] Custom options passed:', JSON.stringify(options));
+  }
 
   // Query active counties registry dynamically from the database
   let countiesToScrape = [];
-  const pool = new Pool({ connectionString: databaseUrl });
-  try {
-    const res = await pool.query("SELECT county_code FROM counties WHERE is_active = TRUE ORDER BY county_code ASC");
-    countiesToScrape = res.rows.map(r => r.county_code);
-    console.log(`[Worker] Loaded ${countiesToScrape.length} active county registries from database.`);
-  } catch (dbErr) {
-    console.error('[Worker] Failed to query active counties from DB, falling back to TN_DAVIDSON:', dbErr.message);
-    countiesToScrape = ['TN_DAVIDSON'];
-  } finally {
-    await pool.end().catch(() => {});
+  if (options.counties && Array.isArray(options.counties) && options.counties.length > 0) {
+    countiesToScrape = options.counties;
+    console.log(`[Worker] Using custom counties list: ${countiesToScrape.join(', ')}`);
+  } else {
+    const pool = new Pool({ connectionString: databaseUrl });
+    try {
+      const res = await pool.query("SELECT county_code FROM counties WHERE is_active = TRUE ORDER BY county_code ASC");
+      countiesToScrape = res.rows.map(r => r.county_code);
+      console.log(`[Worker] Loaded ${countiesToScrape.length} active county registries from database.`);
+    } catch (dbErr) {
+      console.error('[Worker] Failed to query active counties from DB, falling back to TN_DAVIDSON:', dbErr.message);
+      countiesToScrape = ['TN_DAVIDSON'];
+    } finally {
+      await pool.end().catch(() => {});
+    }
   }
 
   const targetDate = new Date().toISOString().split('T')[0]; // Current date: YYYY-MM-DD
@@ -184,7 +192,7 @@ async function runWorker() {
     if (isAttomBased) {
       const today = new Date();
       const isFirstOfMonth = today.getDate() === 1;
-      const bypassGating = process.env.BYPASS_ATTOM_GATING === 'true';
+      const bypassGating = process.env.BYPASS_ATTOM_GATING === 'true' || options.bypassGating === true;
       if (!isFirstOfMonth && !bypassGating) {
         console.log(`[Worker] Skipping ATTOM county ${county} - ATTOM is scheduled to run once per month on the 1st.`);
         continue;

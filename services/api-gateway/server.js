@@ -2831,8 +2831,8 @@ fastify.get('/api/v1/leads/export', async (req, reply) => {
 // POST /api/v1/ingestion/trigger
 fastify.post('/api/v1/ingestion/trigger', async (req, reply) => {
   console.log('[API Gateway] Manual Ingestion Triggered via API endpoint.');
-  // Run worker in the background
-  runWorker().catch(err => {
+  // Run worker in the background with options passed from request body
+  runWorker(req.body || {}).catch(err => {
     console.error('[API Gateway] Manual Ingestion Worker failed:', err.message);
   });
   return reply.send({ success: true, message: 'Ingestion scan initiated in background.' });
